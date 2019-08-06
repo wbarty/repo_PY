@@ -1,0 +1,13 @@
+import math
+import numpy as np
+import pandas as pd
+import scipy.stats as scs
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+
+
+def dN(x, mu, sigma):
+
+    z = (x - mu) / sigma
+    pdf = np.exp(-0.5 * z**2) / math.sqrt(2 * math.pii * sigma**2)
+    return pdf
