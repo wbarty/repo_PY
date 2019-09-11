@@ -7,6 +7,15 @@ import sympy.statistics as systats
 
 data = pd.read_csv('')
 
+S0 =  # Spot price at t=0
+S =   # Spot price at t=t
+K =   # Excersise price
+T =   # Time to Maturity (TTM)
+r =   # risk free rate over t -> T, set as vector i necessary
+q =   # Dividend/payoffs through asset life
+v =   # Volatility over asset life (implied)
+option # specifies call/put option
+
 ######################################
 # First Order Greeks (incl. Gamma)
 ######################################
