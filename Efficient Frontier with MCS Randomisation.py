@@ -12,29 +12,6 @@ import numpy as np
 
 
 def gen_paths(S0, r, sigma, T, M, I):
-    '''Generate Monte Carlo paths for geometric Brownian motion.
-    Parameters
-    ==========
-    S0: float
-        index stock/index value
-    r: float
-            constant short rate
-     sigma: float
-         constant volatility
-     T: float
-         final time horizon
-     M: int
-         numbrer of time steps
-     I: int
-         number of paths to be simulated
-     M: int
-         number of time steps
-
-     Returns
-     =======
-     paths: ndarray, shape (M+1, I)
-             simulated paths given the parameters
-     '''
     dt = T / M
     paths = np.zeros((M + 1, I))
     paths[0] = S0
