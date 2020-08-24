@@ -1,0 +1,180 @@
+from QuantLib import *
+import numpy as np
+import matplotlib.pyplot as plt
+# most documentation for the following can be found here: https://quantlib-python-docs.readthedocs.io
+
+# Date Data
+today = Date(28, 8, 2020)
+Settings.instance().evaluationDate = today
+
+# Market Data
+rate = SimpleQuote(0.02)  # constant rate
+rate_handle = QuoteHandle(rate)  # rate handle
+day_count = Actual365Fixed()
+yield_ts = FlatForward(today, rate_handle, day_count)
+yield_ts.enableExtrapolation()
+handle_yield_ts = RelinkableYieldTermStructureHandle(yield_ts)  # for MCS we will need to relink handle_yield_ts to the simulated yield curve, hence we need a handle and for to be relinkable
+yield_curve = YieldTermStructureHandle(yield_ts)
+euribor6m = Euribor6M(handle_yield_ts)  # using the Euribor Index 6-month curve as a reference rate for the swap floating leg
+
+# Swap Portfolio Data
+
+
+def makeSwap(start, maturity, nominal, fixedrate, index, typ=VanillaSwap.Payer):
+    end = TARGET().advance(start, maturity)
+    fixedtenor = Period(1, Years)
+    floatDC = Actual360()  # day count convention for floating leg
+    fixedDC = Actual360()
+    spread = 0.00  # spread over the index rate for floating rate
+
+    fixed_schedule = Schedule(start,
+                              end,
+                              fixedtenor,
+                              index.fixingCalendar(),  # calender to use, for use its Euribor 6m
+                              fixedDC,
+                              floatDC,
+                              DateGeneration.Backward,
+                              False)  # termination date convention
+    floating_schedule = Schedule(start,
+                                 end,
+                                 index.tenor(),
+                                 index.fixingCalendar(),
+                                 index.businessDayConvention(),
+                                 index.businessDayConvention(),
+                                 DateGeneration.Backward,
+                                 False)
+    swap = VanillaSwap(typ,
+                       nominal,
+                       fixed_schedule,
+                       fixedrate,
+                       fixedDC,
+                       floating_schedule,
+                       index,
+                       spread,
+                       index.dayCounter())
+    return swap
+
+
+# Portfolio Creation (1 payer and 1 receiver swap)
+portfolio = (makeSwap(today + Period(1, Months), Period(2, Years), 1e6, rate, euribor6m),
+             # a payer swap starting in 1 month and ending in 2 years, has a nominal value of $1,000,000, a fixed rate of 0.02 and uses the euribor6m as the index rate
+             makeSwap(today + Period(1, Months), Period(2, Years), 1e5, rate, euribor6m, VanillaSwap.Receiver))
+# a receiver swap starting in 1 month and ending in 2 years, nominal value of $100,000, fixed rate of 0.02 and floating index rate at eurbor6m, the floating spread has been set at 0.00
+
+# Pricing Engine for the portfolio
+engine = DiscountingSwapEngine(handle_yield_ts)
+for trades, fixingDates in portfolio:  # for a single swap we wouldn't need to have this step but since we're valuing 2 swaps with varying nominal and maturity dates this is required, furthermore this is now the netting set.
+    trades.setPricingEngine(engine)
+    trades.NPV()
+    print(trades.NPV())
+
+# Hull-White Calibration
+hwmodel = HullWhite(handle_yield_ts)  # HW model for our TS
+engine = DiscountingSwapEngine(hwmodel)
+optimisation_method = LevenbergMaruardt(1.0e-8, 1.0e-8, 1.0e-8)
+end_criteria = EndCriteria(10000, 100, 1e-6, 1e-6, 1e-8)
+model.calibrate(portfolio, optimisation_method, end_criteria)
+
+alpha, sigma = model.params()
+print(alpha, sigma)
+
+# Model Process
+vol = QuoteHandle(SimpleQuote(model.params(sigma)))
+alpha = QuoteHandle(SimpleQuote(model.params(alpha)))
+model = HullWhite(yield_curve, alphda, vol)
+process = modeol.stateProcess()
+
+# Evaluation Grid
+date_grid = (today + Period(i, Months) for i in range(0, 12 * 4))  # number of months and years for simulation range
+for trades in portfolio:
+    date_grid += trades[1]
+date_grid = np.unique(np.sort(date_grid))  # finds an sorts the unique values in an arrau
+time_grid = np.vectorize(lambda x: ActualActual().yearFraction(today, x))(date_grid)  # vectorises the future times with QL daycount
+dt = time_grid[1:] - time_grid[:-1]  # defines the small interval dt
+
+# Random Number Generator
+seed = 123
+rng = MersenneTwisterUniformRng(seed)  # random number generator
+rsg = MersenneTwisterUniformRsg(len(time_grid) - 1, rng)
+generator = InvCumulativeMersenneTwisterGaussianRng(rsg)
+
+# Generating N Paths
+N = 1000
+x = np.zeros((N, len(time_grid)))  # create an empty array with dimensions N x time grid where data will be saved later
+y = np.zeros((N, len(time_grid)))
+maturities = np.array([0.0, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+zero_bonds = np.zeros((N, len(time_grid)))  # using maturities above, we will save zero coupon bond prices which will be used for discounting in the scenarios
+
+for j in range(12):
+    zero_bonds[:0, j] = model.zerobond(pillars[j], 0, 0)
+
+for n in range(0, N):
+    dWs = generator.nextSequence().value()
+    for i in range(1, len(time_grid)):
+        t0 = time_grid[i - 1]
+        t1 = time_grid[i]
+        x[n, i] = process.expectation(t0, x[n, i - 1], dt[i - 1]) + dWs[i - 1] * process.stdDeviation(t0, x[n, i - 1], dt[i - 1])
+        y[n, i] = (x[n, i] - process.expectation(0, 0, t1)) / process.stdDeviation(0, 0, t1)
+        for j in range(12):
+            zero_bonds[n, i, j] = model.zerobond(t1 * maturities[j], t1, y[n, j])
+# this has produced values to discount a yield curve that is created in the simulation
+discount_factors = np.vectorize(t0_curve.discount)(time_grid)
+
+# Pricing throughout the path scenarios
+npv_cube = np.zeros((N, len(date_grid), len(portfolio)))
+for p in range(0, N):
+    for t in range(0, len(date_grid)):
+        date = date_grid[t]
+        Settings.instance().setEvaluationDate(date)
+        yieldcurve_dates = [date, date + Period(6, Months)]  # start date plus the 6m maturity
+        yieldcurve_dates = [date, date + Period(i, Years) for i in range(1, 11)]
+        yieldc = DiscountingCurve(yieldcurve_dates, zero_bonds[p, t, :], Actual365Fixed())
+        yieldc.enableExtrapolation
+        handle_yield_ts.linkTo(yieldc)  # linking the original yield ts to the scenario ZCB discounting curve
+    if euribor6m.isValidFixingDate(date):
+        fixing = euribor6m.fixing(date)
+        euribor6m.addFixing(date, fixing)
+    for i in range(len(portfolio)):
+        npv_cube[p, t, i] = portfolio[i][0].NPV()
+    IndexManager.instance().clearHistories()  # resetting the eval date
+Settings.instance().setEvaluationDate(today)
+handle_yield_ts.linkTo(yield_ts)  # relinking the handle YTS to the flat forward TS
+
+# Discounted NPV's
+discounted_npv_cube = np.zeros(npv_cube, axis=2)
+for i in range(npv_cube.shape[2]):
+    discounted_npv_cube[:, :, 1] = npv_cube[:, :, i] * discount_factors
+
+# Portfolio NPV  and Discounted Portfolio NPV after netting
+portfolio_npv = np.sum(npv_cube, axis=2)
+discounted_npv = npv.sum(discounted_npv_cube, axis)
+
+#  Exposure and Discounted Exposure
+exposure = portfolio_npv
+discexposure = discounted_npv
+
+# Expected Exposure and Expected Discounted Exposure
+exposure[exposure < 0] = 0  # letting all values less than 0 equal to 0
+expected_exposure = np.sum(exposure, axis=0) / N  # summing over the N paths which is axis 0 on the NPV cube
+expected_exposure = EE
+
+discexposure[discexposure < 0] = 0
+discounted_expected_exposure = np.sum(discexposure, axis=0) / N
+discounted_expected_exposure = dEE
+
+# PFE - the highest level of expoected exposure with a certain confidence level, one could thing of this like VaR
+PFE = np.max(exposure, axis=1) * (0.99 * N)
+
+# Default Curve
+def_dates = [today + Period(i, Years), for i in range(0, 11)]  # default dates range from today to end of simulation time
+haz_rate = 0.02  # constant hazard rate
+surv_curve = SurvivalProbabilityCurve(def_dates, haz_rate, ActualActual())  # built in QuantLib function, takes dates, survival proabilities and day counter and calender
+surv_curve.enableExtrapolation  # so we can extrapolate the PD
+
+defaultprobvector = np.vectorize(surv_curve.defaultProbability)  # extract the default probabilities
+dPD = defaultprobvector(time_grid[:, -1], time_grid[1:])  # PD for a small time interval
+
+# Calculate CVA
+R = 0.4  # recovery rate or 1-LGD
+CVA = (1 - R) * np.sum(dEE[1:] * dPD)
+print(CVA)
