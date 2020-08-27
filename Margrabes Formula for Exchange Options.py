@@ -1,4 +1,4 @@
-# Margrabes Formula option pricing for an exhcnage of assets upon maturity (Exchange Options)
+# Margrabes Formula option pricing for an exchange of assets on maturity (Exchange Options)
 
 import numpy as np
 import pandas as pd
@@ -7,7 +7,7 @@ import scipy.stats
 # suppose S1 and S2 have constant dividend yields q1 and q2, the option gives the right to exchange S2 for S1 at maturity (EURO) T.
 # payoff of C(T) = max(0, S1(T) - S2(T))
 
-# for to calculation of volatility one can use the porfolio standard deviation formula with the correlation coeficient between S1 and S2 (price)
+# for to calculation of volatility one can use the porfolio standard deviation formula with the correlation coefficient between S1 and S2
 
 # S1 = pd.read_csv('prices') or through API connection retrieve values
 # S2 = pd.read_csv('prices') or through API connection retrieve values
