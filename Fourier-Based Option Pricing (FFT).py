@@ -14,7 +14,7 @@ K = 95.0  # strike level
 T = 1.0  # call option maturity
 r = 0.05  # constant short rate
 sigma = 0.2  # constant volatility of diffusion
-lmbda = 1.0  # jump frequency p.a.
+lmbda = 1.0  # jump frequency p.a. # can't have 'lambda' due to the base python lambda func
 mu = -0.1  # expected jump size
 delta = 0.05  # jump size volatility
 
@@ -87,3 +87,5 @@ def fft_call(S0, K, T, r, sigma, lmbda, mu, delta):
     return call_value * S0
 
 print(fft_call(S0, K, T, r, sigma, lmbda, mu, delta))
+[out] 14.322130932721471
+
