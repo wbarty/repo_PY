@@ -53,20 +53,6 @@ log_returns = np.log(paths[1:] / paths[:-1])
 # print log return array
 print(log_returns[:, 0].round(4))
 
-
-def print_statistics(array):
-    sta = scs.describe(array)
-    print('%14s %15s' % ('statistic', 'value'))
-    print(30 * '-')
-    print('%14s %15.5f' % ('size', sta[0]))
-    print('%14s %15.5f' % ('min', sta[1][0]))
-    print('%14s %15.5f' % ('max', sta[1][1]))
-    print('%14s %15.5f' % ('mean', sta[2]))
-    print('%14s %15.5f' % ('std', np.sqrt(sta[3])))
-    print('%14s %15.5f' % ('skew', sta[4]))
-    print('%14s %15.5f' % ('kurtosis', sta[5]))
-
-
 # print_statistics(log_returns.flatten())
 
 
@@ -90,22 +76,17 @@ raw = pd.read_csv(r'C:\Users\wbart\Desktop\352data\352Pricingdata.csv', index_co
 
 # plt.show()
 
-
 log_returns = np.log(raw / raw.shift(1))
 # print(log_returns.head())
 
 symbols = ['Stock 1', 'Stock 2', 'Stock 3', 'Stock 4', 'Stock 5', 'Stock 6', 'Stock 7', 'Stock 8', 'Stock 9', 'Stock 10', 'Stock 11', 'Stock 12', 'Stock 13', 'Stock 14', 'Stock 15', 'Stock 16', 'Stock 17', 'Stock 18', 'Stock 19', 'Stock 20', 'Stock 21', 'Stock 22', 'Stock 23', 'Stock 24', 'Stock 25', 'Stock 26', 'Stock 27', 'Stock 28', 'Stock 29', 'Stock 30', 'Stock 31', 'Stock 32', 'Stock 33', 'Stock 34', 'Stock 35', 'Stock 36', 'Stock 37', 'Stock 38', 'Stock 39', 'Stock 40', 'Stock 41', 'Stock 42', 'Stock 43', 'Stock 44', 'Stock 45', 'Stock 46', 'Stock 47', 'Stock 48', 'Stock 49', 'Stock 50']
 
 for sym in symbols:
-    print('\nresults for symbol {}'.format(sym))
-    print(50 * '-')
     log_raw = np.array(log_returns[sym].dropna())
     print(log_raw.mean, log_raw.std, log_raw.min, log_raw.max, log_raw.size)
     # plt.show()
 
 for sym in symbols:
-    print('\nResults for symbol{}'.format(sym))
-    print(32 * '-')
     log_data = np.array(log_returns[sym].dropna())
     # normality_tests(log_data)
 
