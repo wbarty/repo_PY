@@ -1,11 +1,12 @@
 import math
 import numpy as np
-import pandas as pd
-from pylab import mpl, plt
-S0 = .
-T=
-r=
-sigma=
+
+S0 = 100
+T = 1
+r = 0.05
+sigma= 0.2
+N = 5
+
 def simulate_tree(M):
      dt = T/M
      u = math.exp(sigma*math.sqrt(dt))
@@ -20,5 +21,4 @@ def simulate_tree(M):
              z += 1
      return S
 
-np.set_printoptions(formatter={'float': lambda x: '%6.2f' % x})
 simulate_tree(N)
